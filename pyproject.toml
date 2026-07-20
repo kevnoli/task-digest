@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "task-digest"
+version = "0.1.0"
+description = "Scheduled Vikunja task digests delivered through Telegram"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Task Digest maintainers" }]
+dependencies = [
+  "APScheduler==3.11.3",
+  "httpx==0.28.1",
+  "pydantic==2.13.4",
+  "pydantic-settings==2.14.2",
+  "typer==0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy==1.20.2",
+  "pytest==8.4.2",
+  "pytest-asyncio==1.4.0",
+  "pytest-httpx==0.35.0",
+  "ruff==0.15.22",
+]
+
+[project.scripts]
+task-digest = "task_digest.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["task_digest"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "apscheduler.*"
+ignore_missing_imports = true

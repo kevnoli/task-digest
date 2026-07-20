@@ -1,0 +1,32 @@
+services:
+  task-digest:
+    build:
+      context: .
+    image: task-digest:local
+    env_file:
+      - .env
+    environment:
+      TIMEZONE: ${TIMEZONE:-America/Bahia}
+      TZ: ${TIMEZONE:-America/Bahia}
+      HEARTBEAT_PATH: /tmp/task-digest/heartbeat
+      SETTINGS_DATABASE_PATH: /data/task-digest.sqlite3
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777,uid=10001,gid=10001
+    volumes:
+      - task-digest-data:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-m", "task_digest", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  task-digest-data:
