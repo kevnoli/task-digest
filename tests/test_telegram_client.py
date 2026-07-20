@@ -37,11 +37,11 @@ async def test_telegram_sends_html_payload() -> None:
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler), base_url="https://api.telegram.org/"
     ) as http_client:
-        client = TelegramClient("bot-secret", "-100123", client=http_client)
+        client = TelegramClient("123456:bot-secret", "-100123", client=http_client)
         count = await client.send_digest("<b>Hello</b>")
 
     assert count == 1
-    assert requests[0].url.path == "/botbot-secret/sendMessage"
+    assert requests[0].url.path == "/bot123456:bot-secret/sendMessage"
     payload = requests[0].read().decode()
     assert '"parse_mode":"HTML"' in payload
     assert '"chat_id":"-100123"' in payload

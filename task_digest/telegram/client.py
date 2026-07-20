@@ -113,7 +113,7 @@ class TelegramClient:
         return len(chunks)
 
     async def _send_message(self, text: str) -> None:
-        endpoint = f"bot{self._bot_token}/sendMessage"
+        endpoint = f"/bot{self._bot_token}/sendMessage"
         for attempt in range(self._max_retries + 1):
             try:
                 response = await self._client.post(
