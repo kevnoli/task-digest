@@ -53,18 +53,20 @@ def test_utc_timestamp_is_converted_to_configured_timezone(
     assert classify([task])[0].category is DueCategory.TODAY
 
 
-def test_completed_and_no_due_date_tasks_are_excluded(
+def test_completed_tasks_are_excluded_and_no_due_date_tasks_are_included(
     make_task: Callable[..., VikunjaTask],
 ) -> None:
-    assert (
-        classify(
-            [
-                make_task(task_id=1, due_date=NOW, done=True),
-                make_task(task_id=2, due_date=None),
-            ]
-        )
-        == []
+    result = classify(
+        [
+            make_task(task_id=1, due_date=NOW, done=True),
+            make_task(task_id=2, due_date=None),
+        ]
     )
+
+    assert len(result) == 1
+    assert result[0].id == 2
+    assert result[0].category is DueCategory.UNSCHEDULED
+    assert result[0].due_at is None
 
 
 def test_evening_excludes_upcoming_tasks(make_task: Callable[..., VikunjaTask]) -> None:
@@ -130,6 +132,25 @@ def test_empty_digest_returns_none() -> None:
     assert format_digest([], kind=DigestKind.MORNING, now=NOW, timezone=ZONE) is None
 
 
+def test_no_due_date_section_is_grouped_and_priority_sorted(
+    make_task: Callable[..., VikunjaTask],
+) -> None:
+    tasks = [
+        make_task(task_id=1, title="Low", due_date=None, priority=1, project_id=10),
+        make_task(task_id=2, title="High", due_date=None, priority=4, project_id=10),
+        make_task(task_id=3, title="Personal", due_date=None, project_id=20),
+    ]
+
+    classified = classify(tasks)
+    rendered = format_digest(classified, kind=DigestKind.MORNING, now=NOW, timezone=ZONE)
+
+    assert [task.title for task in classified] == ["High", "Low", "Personal"]
+    assert rendered is not None
+    assert "<b>No due date</b>" in rendered
+    assert rendered.index("High") < rendered.index("Low")
+    assert "— no due date" in rendered
+
+
 def test_evening_digest_includes_unfinished_summary(
     make_task: Callable[..., VikunjaTask],
 ) -> None:
@@ -141,7 +162,9 @@ def test_evening_digest_includes_unfinished_summary(
         timezone=ZONE,
     )
     assert rendered is not None
-    assert "Unfinished: <b>1</b> due today, <b>0</b> overdue." in rendered
+    assert (
+        "Unfinished: <b>1</b> due today, <b>0</b> overdue, <b>0</b> without due dates." in rendered
+    )
 
 
 def test_zero_vikunja_due_date_becomes_none() -> None:

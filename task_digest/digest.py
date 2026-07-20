@@ -4,7 +4,7 @@ import html
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from task_digest.models import (
@@ -20,6 +20,7 @@ _CATEGORY_ORDER = {
     DueCategory.OVERDUE: 0,
     DueCategory.TODAY: 1,
     DueCategory.UPCOMING: 2,
+    DueCategory.UNSCHEDULED: 3,
 }
 
 
@@ -41,20 +42,24 @@ def classify_tasks(
     classified: list[DigestTask] = []
 
     for task in tasks:
-        if task.done or task.due_date is None:
+        if task.done:
             continue
-        due_at = task.due_date.astimezone(timezone)
-        due_date = due_at.date()
         days_overdue = 0
-        if due_date < today:
-            category = DueCategory.OVERDUE
-            days_overdue = (today - due_date).days
-        elif due_date == today:
-            category = DueCategory.TODAY
-        elif kind is DigestKind.MORNING and due_date <= today + timedelta(days=upcoming_days):
-            category = DueCategory.UPCOMING
+        if task.due_date is None:
+            due_at = None
+            category = DueCategory.UNSCHEDULED
         else:
-            continue
+            due_at = task.due_date.astimezone(timezone)
+            due_date = due_at.date()
+            if due_date < today:
+                category = DueCategory.OVERDUE
+                days_overdue = (today - due_date).days
+            elif due_date == today:
+                category = DueCategory.TODAY
+            elif kind is DigestKind.MORNING and due_date <= today + timedelta(days=upcoming_days):
+                category = DueCategory.UPCOMING
+            else:
+                continue
 
         classified.append(
             DigestTask(
@@ -80,7 +85,7 @@ def _task_sort_key(task: DigestTask) -> tuple[int, int, datetime, str]:
     return (
         _CATEGORY_ORDER[task.category],
         -task.priority,
-        task.due_at,
+        task.due_at or datetime.max.replace(tzinfo=UTC),
         task.title.casefold(),
     )
 
@@ -116,10 +121,13 @@ def format_digest(
     if kind is DigestKind.EVENING:
         today_count = sum(task.category is DueCategory.TODAY for task in tasks)
         overdue_count = sum(task.category is DueCategory.OVERDUE for task in tasks)
+        unscheduled_count = sum(task.category is DueCategory.UNSCHEDULED for task in tasks)
         lines.extend(
             [
                 "",
-                f"Unfinished: <b>{today_count}</b> due today, <b>{overdue_count}</b> overdue.",
+                f"Unfinished: <b>{today_count}</b> due today, "
+                f"<b>{overdue_count}</b> overdue, "
+                f"<b>{unscheduled_count}</b> without due dates.",
             ]
         )
 
@@ -127,6 +135,7 @@ def format_digest(
         (DueCategory.OVERDUE, "Overdue"),
         (DueCategory.TODAY, "Today's tasks"),
         (DueCategory.UPCOMING, "Upcoming"),
+        (DueCategory.UNSCHEDULED, "No due date"),
     )
     for category, heading in sections:
         section_tasks = [task for task in tasks if task.category is category]
@@ -163,6 +172,8 @@ def _render_task(task: DigestTask, local_now: datetime) -> list[str]:
 
 def _due_text(task: DigestTask, local_now: datetime) -> str:
     due = task.due_at
+    if due is None:
+        return "no due date"
     time_suffix = "" if (due.hour, due.minute) == (0, 0) else f" at {due:%H:%M}"
     if task.category is DueCategory.OVERDUE:
         unit = "day" if task.days_overdue == 1 else "days"

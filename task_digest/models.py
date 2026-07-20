@@ -64,6 +64,7 @@ class DueCategory(StrEnum):
     OVERDUE = "overdue"
     TODAY = "today"
     UPCOMING = "upcoming"
+    UNSCHEDULED = "unscheduled"
 
 
 class DigestTask(BaseModel):
@@ -72,7 +73,7 @@ class DigestTask(BaseModel):
     id: int
     title: str
     description: str
-    due_at: datetime
+    due_at: datetime | None
     priority: int
     project_id: int
     project_name: str

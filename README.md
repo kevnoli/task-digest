@@ -307,10 +307,15 @@ Upcoming
 
 Personal
 • Replace garage camera [HOME-43] — tomorrow at 09:30 #hardware
+
+No due date
+
+Personal
+• Organize workshop [HOME-44] — no due date
 ```
 
-Project names and task data are HTML-escaped. Empty sections are omitted, completed or undated tasks
-are excluded, and no message is sent when the entire digest is empty.
+Project names and task data are HTML-escaped. Empty sections are omitted, completed tasks are
+excluded, undated tasks receive their own section, and no message is sent when the digest is empty.
 
 ## Troubleshooting
 
@@ -318,8 +323,8 @@ are excluded, and no message is sent when the entire digest is empty.
   Check that `.env` exists in the Compose project directory and times use `HH:MM`.
 - **Vikunja 401/403:** recreate the token, grant read access for tasks/projects, and confirm the API
   account can open the affected projects. `VIKUNJA_BASE_URL` should normally be the instance root.
-- **No tasks appear:** only incomplete tasks due today, overdue, or inside the morning upcoming window
-  are included. Undated and completed tasks are intentionally omitted.
+- **No tasks appear:** completed tasks are omitted. Incomplete tasks without dates appear under
+  **No due date**; future dated tasks outside the morning upcoming window remain omitted.
 - **Telegram 400 / chat not found:** send the bot a private message first, add it to the group, and
   re-check the signed chat ID from `getUpdates`.
 - **Telegram rejects formatting:** titles, labels, projects, descriptions, and LLM text are escaped;

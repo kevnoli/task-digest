@@ -95,7 +95,7 @@ class OpenAICompatibleSummaryProvider:
             "id": task.id,
             "title": task.title,
             "project": task.project_name,
-            "due_date": task.due_at.isoformat(),
+            "due_date": task.due_at.isoformat() if task.due_at is not None else None,
             "due_status": task.category.value,
             "days_overdue": task.days_overdue,
             "priority": task.priority,
