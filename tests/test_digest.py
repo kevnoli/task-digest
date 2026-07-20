@@ -95,7 +95,7 @@ def test_note_grouping(make_task: Callable[..., SourceTask]) -> None:
     assert list(group_by_project(classify(tasks))) == ["Personal", "Work"]
 
 
-def test_formatting_escapes_telegram_html_and_marks_pinned_priority(
+def test_formatting_escapes_html_and_puts_tags_on_note_heading(
     make_task: Callable[..., SourceTask],
 ) -> None:
     task = make_task(
@@ -107,17 +107,20 @@ def test_formatting_escapes_telegram_html_and_marks_pinned_priority(
     rendered = format_digest(classify([task]), kind=DigestKind.MORNING, now=NOW, timezone=ZONE)
     assert rendered is not None
     assert "Fix &lt;migration&gt; &amp; review" in rendered
-    assert "&lt;script&gt;" in rendered
-    assert "<b>[HIGH P3]</b>" in rendered
-    assert "#needs_review" in rendered
-    assert 'href="https://anchor.example.test/notes/note-1"' in rendered
+    assert "&lt;script&gt;" not in rendered
+    assert "<b>Work</b> #needs_review" in rendered
+    assert (
+        '• <a href="https://anchor.example.test/notes/note-1">'
+        "Fix &lt;migration&gt; &amp; review</a>" in rendered
+    )
+    assert "unchecked" not in rendered
 
 
-def test_overdue_days_and_empty_sections(make_task: Callable[..., SourceTask]) -> None:
+def test_overdue_section_omits_empty_sections(make_task: Callable[..., SourceTask]) -> None:
     task = make_task(due_date=datetime(2026, 7, 17, 10, tzinfo=ZONE))
     rendered = format_digest(classify([task]), kind=DigestKind.MORNING, now=NOW, timezone=ZONE)
     assert rendered is not None
-    assert "2 days overdue" in rendered
+    assert "<b>Overdue</b>" in rendered
     assert "Today's tasks" not in rendered
     assert "Upcoming" not in rendered
 
@@ -142,7 +145,7 @@ def test_unchecked_section_is_grouped_and_priority_sorted(
     assert rendered is not None
     assert "<b>Unfinished checklist items</b>" in rendered
     assert rendered.index("High") < rendered.index("Low")
-    assert "— unchecked" in rendered
+    assert "unchecked" not in rendered
 
 
 def test_evening_digest_includes_unfinished_summary(

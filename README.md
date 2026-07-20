@@ -240,12 +240,12 @@ Monday, 20 July 2026
 
 Unfinished checklist items
 
-Groceries
-• Buy milk — unchecked [HIGH P3] #Shopping
-• Eggs — unchecked [HIGH P3] #Shopping
+Groceries #Shopping
+• Buy milk
+• Eggs
 
 House
-• Replace hallway bulb — unchecked
+• Replace hallway bulb
 ```
 
 Empty sections are omitted, and no Telegram message is sent when no unchecked checklist rows exist.

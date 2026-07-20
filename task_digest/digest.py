@@ -136,47 +136,34 @@ def format_digest(
             continue
         lines.extend(["", f"<b>{heading}</b>"])
         for project, project_tasks in group_by_project(section_tasks).items():
-            lines.extend(["", f"<b>{html.escape(_truncate(project, 100), quote=True)}</b>"])
+            lines.extend(["", _render_project_heading(project, project_tasks)])
             for task in project_tasks:
-                lines.extend(_render_task(task, local_now))
+                lines.extend(_render_task(task))
 
     return "\n".join(lines).strip()
 
 
-def _render_task(task: DigestTask, local_now: datetime) -> list[str]:
+def _render_project_heading(project: str, tasks: Sequence[DigestTask]) -> str:
+    title = html.escape(_truncate(_clean_text(project), 100), quote=True)
+    seen: set[str] = set()
+    labels: list[str] = []
+    for task in tasks:
+        for label in task.labels:
+            if label not in seen:
+                seen.add(label)
+                labels.append(label)
+    rendered_labels = [
+        f"#{html.escape(_truncate(_clean_text(label), 40), quote=True).replace(' ', '_')}"
+        for label in labels[:10]
+    ]
+    suffix = f" {' '.join(rendered_labels)}" if rendered_labels else ""
+    return f"<b>{title}</b>{suffix}"
+
+
+def _render_task(task: DigestTask) -> list[str]:
     title = html.escape(_truncate(_clean_text(task.title), 240), quote=True)
     url = html.escape(task.url, quote=True)
-    due = _due_text(task, local_now)
-    priority = f" <b>[HIGH P{task.priority}]</b>" if task.priority >= 3 else ""
-    labels = ""
-    if task.labels:
-        rendered = [
-            f"#{html.escape(_truncate(_clean_text(label), 40), quote=True).replace(' ', '_')}"
-            for label in task.labels[:10]
-        ]
-        labels = " " + " ".join(rendered)
-    identifier = f" [{html.escape(task.identifier, quote=True)}]" if task.identifier.strip() else ""
-    lines = [f'• <a href="{url}">{title}</a>{identifier} — {html.escape(due)}{priority}{labels}']
-    description = _clean_text(task.description)
-    if description:
-        lines.append(f"  ↳ {html.escape(_truncate(description, 240), quote=True)}")
-    return lines
-
-
-def _due_text(task: DigestTask, local_now: datetime) -> str:
-    due = task.due_at
-    if due is None:
-        return "unchecked"
-    time_suffix = "" if (due.hour, due.minute) == (0, 0) else f" at {due:%H:%M}"
-    if task.category is DueCategory.OVERDUE:
-        unit = "day" if task.days_overdue == 1 else "days"
-        return f"{task.days_overdue} {unit} overdue{time_suffix}"
-    if task.category is DueCategory.TODAY:
-        return f"due today{time_suffix}"
-    days_until = (due.date() - local_now.date()).days
-    if days_until == 1:
-        return f"tomorrow{time_suffix}"
-    return f"in {days_until} days ({due:%a %d %b}){time_suffix}"
+    return [f'• <a href="{url}">{title}</a>']
 
 
 def _clean_text(value: str) -> str:
