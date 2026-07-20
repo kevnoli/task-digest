@@ -16,7 +16,7 @@ class _FocusResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     introduction: str
-    referenced_task_ids: list[int]
+    referenced_task_ids: list[str]
 
 
 class OpenAICompatibleSummaryProvider:

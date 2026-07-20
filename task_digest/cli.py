@@ -23,7 +23,7 @@ from task_digest.settings_store import (
 
 app = typer.Typer(
     name="task-digest",
-    help="Send scheduled Vikunja task digests to Telegram.",
+    help="Send scheduled Anchor checklist digests to Telegram.",
     no_args_is_help=True,
 )
 settings_app = typer.Typer(help="View or change persisted non-secret digest settings.")

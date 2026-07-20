@@ -12,33 +12,24 @@ def _parse_optional_datetime(value: object) -> object:
     return value
 
 
-class VikunjaLabel(BaseModel):
+class SourceTask(BaseModel):
+    """Source-neutral task produced by an integration."""
+
     model_config = ConfigDict(extra="ignore")
 
-    id: int
-    title: str
-    hex_color: str = ""
-
-
-class VikunjaTask(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    id: int
+    id: str
     title: str
     description: str = ""
-    done: bool = False
+    completed: bool = False
     due_date: datetime | None = None
     priority: int = 0
-    project_id: int
+    project_id: str
+    project_name: str
     identifier: str = ""
-    labels: list[VikunjaLabel] = Field(default_factory=list)
+    labels: list[str] = Field(default_factory=list)
+    url: str
 
     _normalize_due_date = field_validator("due_date", mode="before")(_parse_optional_datetime)
-
-    @field_validator("labels", mode="before")
-    @classmethod
-    def normalize_null_labels(cls, value: object) -> object:
-        return [] if value is None else value
 
     @field_validator("due_date")
     @classmethod
@@ -46,13 +37,6 @@ class VikunjaTask(BaseModel):
         if value is not None and value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value
-
-
-class VikunjaProject(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    id: int
-    title: str
 
 
 class DigestKind(StrEnum):
@@ -70,12 +54,12 @@ class DueCategory(StrEnum):
 class DigestTask(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    id: int
+    id: str
     title: str
     description: str
     due_at: datetime | None
     priority: int
-    project_id: int
+    project_id: str
     project_name: str
     identifier: str
     labels: tuple[str, ...]

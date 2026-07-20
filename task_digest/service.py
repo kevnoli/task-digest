@@ -1,26 +1,23 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 
+from task_digest.anchor import AnchorClient
 from task_digest.config import Settings
 from task_digest.digest import classify_tasks, format_digest
 from task_digest.llm import OpenAICompatibleSummaryProvider, SummaryProvider
-from task_digest.models import DigestKind, VikunjaProject, VikunjaTask
+from task_digest.models import DigestKind, SourceTask
 from task_digest.telegram import TelegramClient
-from task_digest.vikunja import VikunjaClient
 
 logger = logging.getLogger(__name__)
 
 
-class VikunjaReader(Protocol):
-    async def fetch_tasks(self) -> list[VikunjaTask]: ...
-
-    async def fetch_projects(self) -> list[VikunjaProject]: ...
+class TaskReader(Protocol):
+    async def fetch_tasks(self) -> list[SourceTask]: ...
 
 
 class TelegramSender(Protocol):
@@ -39,12 +36,12 @@ class DigestRunner:
     def __init__(
         self,
         settings: Settings,
-        vikunja: VikunjaReader,
+        source: TaskReader,
         telegram: TelegramSender | None,
         summary_provider: SummaryProvider | None = None,
     ) -> None:
         self._settings = settings
-        self._vikunja = vikunja
+        self._source = source
         self._telegram = telegram
         self._summary_provider = summary_provider
 
@@ -52,17 +49,13 @@ class DigestRunner:
         self, kind: DigestKind = DigestKind.MORNING, *, now: datetime | None = None
     ) -> DigestOutcome:
         run_at = now or datetime.now(UTC)
-        raw_tasks, projects = await asyncio.gather(
-            self._vikunja.fetch_tasks(), self._vikunja.fetch_projects()
-        )
+        raw_tasks = await self._source.fetch_tasks()
         tasks = classify_tasks(
             raw_tasks,
-            projects,
             now=run_at,
             timezone=self._settings.zoneinfo,
             upcoming_days=self._settings.upcoming_days,
             kind=kind,
-            web_url=self._settings.vikunja_web_url,
         )
 
         introduction: str | None = None
@@ -113,11 +106,12 @@ class DigestRunner:
 
 async def execute_once(settings: Settings, kind: DigestKind = DigestKind.MORNING) -> DigestOutcome:
     async with AsyncExitStack() as stack:
-        vikunja = await stack.enter_async_context(
-            VikunjaClient(
-                settings.vikunja_base_url,
-                settings.vikunja_api_token.get_secret_value(),
-                timeout=settings.vikunja_timeout_seconds,
+        source = await stack.enter_async_context(
+            AnchorClient(
+                settings.anchor_base_url,
+                settings.anchor_api_token.get_secret_value(),
+                settings.anchor_web_url,
+                timeout=settings.anchor_timeout_seconds,
             )
         )
 
@@ -148,5 +142,5 @@ async def execute_once(settings: Settings, kind: DigestKind = DigestKind.MORNING
                 )
             )
 
-        runner = DigestRunner(settings, vikunja, telegram, summary_provider)
+        runner = DigestRunner(settings, source, telegram, summary_provider)
         return await runner.run(kind)

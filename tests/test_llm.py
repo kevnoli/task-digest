@@ -13,16 +13,16 @@ from task_digest.models import DigestKind, DigestTask, DueCategory
 
 def digest_task(description: str = "Sensitive details") -> DigestTask:
     return DigestTask(
-        id=11,
+        id="note-1:0",
         title="Fix database migration",
         description=description,
         due_at=datetime(2026, 7, 18, 10, tzinfo=ZoneInfo("America/Bahia")),
         priority=4,
-        project_id=7,
-        project_name="Work",
-        identifier="WORK-11",
+        project_id="note-1",
+        project_name="Work notes",
+        identifier="",
         labels=("backend",),
-        url="https://tasks.test/tasks/11",
+        url="https://anchor.test/notes/note-1",
         category=DueCategory.OVERDUE,
         days_overdue=1,
     )
@@ -37,7 +37,7 @@ async def test_llm_uses_structured_tasks_without_descriptions_by_default() -> No
         content = json.dumps(
             {
                 "introduction": 'Suggested focus: "Fix database migration" is overdue.',
-                "referenced_task_ids": [11],
+                "referenced_task_ids": ["note-1:0"],
             }
         )
         return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
@@ -58,7 +58,7 @@ async def test_llm_uses_structured_tasks_without_descriptions_by_default() -> No
 async def test_llm_rejects_unknown_task_reference() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         content = json.dumps(
-            {"introduction": 'Do "Invented work" first.', "referenced_task_ids": [999]}
+            {"introduction": 'Do "Invented work" first.', "referenced_task_ids": ["unknown"]}
         )
         return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 

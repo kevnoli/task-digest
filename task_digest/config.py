@@ -37,10 +37,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    vikunja_base_url: str
-    vikunja_api_token: SecretStr
-    vikunja_web_url: str
-    vikunja_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+    anchor_base_url: str
+    anchor_api_token: SecretStr
+    anchor_web_url: str
+    anchor_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
 
     telegram_bot_token: SecretStr | None = None
     telegram_chat_id: str | None = None
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     heartbeat_max_age_seconds: int = Field(default=90, ge=15, le=900)
     settings_database_path: Path = Path("./data/task-digest.sqlite3")
 
-    @field_validator("vikunja_base_url", "vikunja_web_url", "llm_base_url")
+    @field_validator("anchor_base_url", "anchor_web_url", "llm_base_url")
     @classmethod
     def validate_http_url(cls, value: str) -> str:
         normalized = value.strip().rstrip("/")
@@ -77,11 +77,11 @@ class Settings(BaseSettings):
             raise ValueError("must be an absolute http:// or https:// URL")
         return normalized
 
-    @field_validator("vikunja_api_token")
+    @field_validator("anchor_api_token")
     @classmethod
-    def validate_vikunja_token(cls, value: SecretStr) -> SecretStr:
+    def validate_anchor_token(cls, value: SecretStr) -> SecretStr:
         if not value.get_secret_value().strip():
-            raise ValueError("VIKUNJA_API_TOKEN must not be empty")
+            raise ValueError("ANCHOR_API_TOKEN must not be empty")
         return value
 
     @field_validator("telegram_bot_token", "llm_api_key", mode="before")
@@ -145,7 +145,7 @@ class Settings(BaseSettings):
         return ZoneInfo(self.timezone)
 
     def secret_values(self) -> tuple[str, ...]:
-        values = [self.vikunja_api_token.get_secret_value()]
+        values = [self.anchor_api_token.get_secret_value()]
         if self.telegram_bot_token is not None:
             values.append(self.telegram_bot_token.get_secret_value())
         if self.llm_api_key is not None:
@@ -154,8 +154,8 @@ class Settings(BaseSettings):
 
     def safe_summary(self) -> dict[str, object]:
         return {
-            "vikunja_base_url": self.vikunja_base_url,
-            "vikunja_web_url": self.vikunja_web_url,
+            "anchor_base_url": self.anchor_base_url,
+            "anchor_web_url": self.anchor_web_url,
             "timezone": self.timezone,
             "morning_enabled": self.morning_digest_enabled,
             "morning_time": self.morning_digest_time.strftime("%H:%M"),

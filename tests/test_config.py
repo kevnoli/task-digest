@@ -6,9 +6,9 @@ from pydantic import ValidationError
 from task_digest.config import Settings
 
 BASE = {
-    "vikunja_base_url": "https://tasks.example.test",
-    "vikunja_api_token": "secret",
-    "vikunja_web_url": "https://tasks.example.test",
+    "anchor_base_url": "https://anchor.example.test",
+    "anchor_api_token": "secret",
+    "anchor_web_url": "https://anchor.example.test",
 }
 
 
@@ -35,6 +35,11 @@ def test_invalid_boolean_has_useful_error() -> None:
 def test_invalid_timezone_is_rejected() -> None:
     with pytest.raises(ValidationError, match="unknown IANA timezone"):
         Settings(**BASE, dry_run=True, timezone="Mars/Olympus")
+
+
+def test_empty_anchor_token_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="ANCHOR_API_TOKEN"):
+        Settings(**{**BASE, "anchor_api_token": ""}, dry_run=True)
 
 
 def test_telegram_credentials_required_outside_dry_run() -> None:

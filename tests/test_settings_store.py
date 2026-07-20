@@ -16,9 +16,9 @@ from task_digest.settings_store import (
 
 def settings_for(path: Path) -> Settings:
     return Settings(
-        vikunja_base_url="https://tasks.example.test",
-        vikunja_api_token="vikunja-secret",
-        vikunja_web_url="https://tasks.example.test",
+        anchor_base_url="https://anchor.example.test",
+        anchor_api_token="anchor-secret",
+        anchor_web_url="https://anchor.example.test",
         dry_run=True,
         settings_database_path=path,
     )
@@ -77,4 +77,4 @@ def test_effective_settings_are_secret_free(tmp_path: Path) -> None:
     values = effective_digest_settings(settings_for(tmp_path / "settings.sqlite3"))
 
     assert set(values) == set(DigestSettingKey)
-    assert "vikunja-secret" not in repr(values)
+    assert "anchor-secret" not in repr(values)

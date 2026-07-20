@@ -11,8 +11,7 @@ from task_digest.models import (
     DigestKind,
     DigestTask,
     DueCategory,
-    VikunjaProject,
-    VikunjaTask,
+    SourceTask,
 )
 
 _SPACE_PATTERN = re.compile(r"\s+")
@@ -25,24 +24,21 @@ _CATEGORY_ORDER = {
 
 
 def classify_tasks(
-    tasks: Iterable[VikunjaTask],
-    projects: Iterable[VikunjaProject],
+    tasks: Iterable[SourceTask],
     *,
     now: datetime,
     timezone: ZoneInfo,
     upcoming_days: int,
     kind: DigestKind,
-    web_url: str,
 ) -> list[DigestTask]:
-    """Normalize and classify incomplete Vikunja tasks for one digest."""
+    """Normalize and classify incomplete source tasks for one digest."""
 
     local_now = now.astimezone(timezone)
     today = local_now.date()
-    project_names = {project.id: project.title for project in projects}
     classified: list[DigestTask] = []
 
     for task in tasks:
-        if task.done:
+        if task.completed:
             continue
         days_overdue = 0
         if task.due_date is None:
@@ -69,10 +65,10 @@ def classify_tasks(
                 due_at=due_at,
                 priority=task.priority,
                 project_id=task.project_id,
-                project_name=project_names.get(task.project_id, f"Project {task.project_id}"),
+                project_name=task.project_name,
                 identifier=task.identifier,
-                labels=tuple(label.title for label in task.labels),
-                url=f"{web_url.rstrip('/')}/tasks/{task.id}",
+                labels=tuple(task.labels),
+                url=task.url,
                 category=category,
                 days_overdue=days_overdue,
             )
@@ -112,22 +108,19 @@ def format_digest(
         return None
 
     local_now = now.astimezone(timezone)
-    title = "Morning task digest" if kind is DigestKind.MORNING else "Evening task digest"
+    title = "Morning checklist digest" if kind is DigestKind.MORNING else "Evening checklist digest"
     lines = [f"<b>{title}</b>", html.escape(local_now.strftime("%A, %d %B %Y"))]
 
     if introduction:
         lines.extend(["", html.escape(_truncate(_clean_text(introduction), 400), quote=True)])
 
     if kind is DigestKind.EVENING:
-        today_count = sum(task.category is DueCategory.TODAY for task in tasks)
-        overdue_count = sum(task.category is DueCategory.OVERDUE for task in tasks)
-        unscheduled_count = sum(task.category is DueCategory.UNSCHEDULED for task in tasks)
+        unfinished_count = len(tasks)
         lines.extend(
             [
                 "",
-                f"Unfinished: <b>{today_count}</b> due today, "
-                f"<b>{overdue_count}</b> overdue, "
-                f"<b>{unscheduled_count}</b> without due dates.",
+                f"Still unfinished: <b>{unfinished_count}</b> checklist "
+                f"{'item' if unfinished_count == 1 else 'items'}.",
             ]
         )
 
@@ -135,7 +128,7 @@ def format_digest(
         (DueCategory.OVERDUE, "Overdue"),
         (DueCategory.TODAY, "Today's tasks"),
         (DueCategory.UPCOMING, "Upcoming"),
-        (DueCategory.UNSCHEDULED, "No due date"),
+        (DueCategory.UNSCHEDULED, "Unfinished checklist items"),
     )
     for category, heading in sections:
         section_tasks = [task for task in tasks if task.category is category]
@@ -173,7 +166,7 @@ def _render_task(task: DigestTask, local_now: datetime) -> list[str]:
 def _due_text(task: DigestTask, local_now: datetime) -> str:
     due = task.due_at
     if due is None:
-        return "no due date"
+        return "unchecked"
     time_suffix = "" if (due.hour, due.minute) == (0, 0) else f" at {due:%H:%M}"
     if task.category is DueCategory.OVERDUE:
         unit = "day" if task.days_overdue == 1 else "days"
