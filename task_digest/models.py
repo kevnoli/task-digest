@@ -35,6 +35,11 @@ class VikunjaTask(BaseModel):
 
     _normalize_due_date = field_validator("due_date", mode="before")(_parse_optional_datetime)
 
+    @field_validator("labels", mode="before")
+    @classmethod
+    def normalize_null_labels(cls, value: object) -> object:
+        return [] if value is None else value
+
     @field_validator("due_date")
     @classmethod
     def ensure_timezone(cls, value: datetime | None) -> datetime | None:

@@ -149,3 +149,10 @@ def test_zero_vikunja_due_date_becomes_none() -> None:
         {"id": 1, "title": "No date", "project_id": 10, "due_date": "0001-01-01T00:00:00Z"}
     )
     assert task.due_date is None
+
+
+def test_null_vikunja_labels_become_empty_list() -> None:
+    task = VikunjaTask.model_validate(
+        {"id": 1, "title": "No labels", "project_id": 10, "labels": None}
+    )
+    assert task.labels == []
