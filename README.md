@@ -40,7 +40,8 @@ Quill checklist parser → source-neutral tasks → note grouping → safe HTML
                                                         ▼
                                      4096-safe splitting → Telegram
 
-APScheduler runs timezone-aware morning/evening jobs.
+APScheduler runs timezone-aware morning/evening jobs. A restricted Telegram long-poll listener
+accepts `/digest` from the configured destination chat for an immediate morning-style digest.
 A local JSON heartbeat supports health checks without external calls.
 SQLite stores validated non-secret schedule preferences.
 ```
@@ -84,6 +85,8 @@ bodies from errors.
 
 Telegram limits `sendMessage` text to 4096 characters after entity parsing. Task Digest HTML-
 escapes note and checklist data and splits long messages on safe, self-contained line boundaries.
+In service mode, send `/digest` to the bot to request a digest immediately. The command is ignored
+when it comes from any chat other than `TELEGRAM_CHAT_ID`.
 
 ## Configuration
 
@@ -178,6 +181,9 @@ Run the continuous scheduler:
 ```bash
 python -m task_digest serve
 ```
+
+While service mode is running, send `/digest` in the configured Telegram chat to fetch and send the
+current checklist digest immediately. This does not alter the normal morning or evening schedules.
 
 Cron triggers use the configured timezone, coalesce missed runs, allow one instance per job, and do
 not replay old scheduled times after restart. A runtime lock prevents duplicate scheduler processes.

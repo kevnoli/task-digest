@@ -5,6 +5,8 @@ import html
 import logging
 import re
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -17,6 +19,25 @@ _TAG_PATTERN = re.compile(r"<[^>]*>")
 
 class TelegramError(RuntimeError):
     """Raised when Telegram does not accept a message."""
+
+
+@dataclass(frozen=True)
+class TelegramUpdate:
+    """Minimal Telegram update data needed by the command listener."""
+
+    update_id: int
+    chat_id: str | None
+    text: str | None
+
+    def is_command(self, command: str) -> bool:
+        if self.text is None:
+            return False
+        words = self.text.strip().split(maxsplit=1)
+        if not words:
+            return False
+        first_word = words[0].lower()
+        expected = f"/{command.lower()}"
+        return first_word == expected or first_word.startswith(f"{expected}@")
 
 
 def _plain_long_line(line: str, limit: int) -> list[str]:
@@ -91,6 +112,7 @@ class TelegramClient:
     ) -> None:
         self._bot_token = bot_token
         self._chat_id = chat_id
+        self._timeout = timeout
         self._max_retries = max_retries
         self._sleep = sleep
         self._owns_client = client is None
@@ -112,19 +134,68 @@ class TelegramClient:
             logger.info("telegram_chunk_sent chunk=%d total=%d", index, len(chunks))
         return len(chunks)
 
+    async def register_digest_command(self) -> None:
+        """Expose /digest in Telegram's bot command menu."""
+
+        await self._post_api(
+            "setMyCommands",
+            {
+                "commands": [{"command": "digest", "description": "Send the digest now"}],
+                "scope": {"type": "chat", "chat_id": self._chat_id},
+            },
+        )
+
+    async def get_updates(
+        self, *, offset: int | None = None, poll_timeout: int = 25, limit: int = 100
+    ) -> list[TelegramUpdate]:
+        """Long-poll Telegram for new message updates."""
+
+        payload: dict[str, object] = {
+            "timeout": poll_timeout,
+            "limit": limit,
+            "allowed_updates": ["message"],
+        }
+        if offset is not None:
+            payload["offset"] = offset
+        response = await self._post_api(
+            "getUpdates",
+            payload,
+            request_timeout=max(self._timeout, poll_timeout + 5.0),
+        )
+        result = response.get("result")
+        if not isinstance(result, list):
+            raise TelegramError("Telegram returned an invalid updates response")
+        return [update for item in result if (update := self._parse_update(item)) is not None]
+
     async def _send_message(self, text: str) -> None:
-        endpoint = f"/bot{self._bot_token}/sendMessage"
+        await self._post_api(
+            "sendMessage",
+            {
+                "chat_id": self._chat_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            },
+        )
+
+    async def _post_api(
+        self,
+        method: str,
+        payload_data: dict[str, object],
+        *,
+        request_timeout: float | None = None,
+    ) -> dict[str, Any]:
+        endpoint = f"/bot{self._bot_token}/{method}"
         for attempt in range(self._max_retries + 1):
             try:
-                response = await self._client.post(
-                    endpoint,
-                    json={
-                        "chat_id": self._chat_id,
-                        "text": text,
-                        "parse_mode": "HTML",
-                        "disable_web_page_preview": True,
-                    },
-                )
+                if request_timeout is None:
+                    response = await self._client.post(endpoint, json=payload_data)
+                else:
+                    response = await self._client.post(
+                        endpoint,
+                        json=payload_data,
+                        timeout=request_timeout,
+                    )
             except httpx.HTTPError:
                 if attempt >= self._max_retries:
                     raise TelegramError("Could not connect to the Telegram API") from None
@@ -146,9 +217,29 @@ class TelegramClient:
                 description = payload.get("description") if isinstance(payload, dict) else None
                 suffix = f": {description}" if isinstance(description, str) else ""
                 raise TelegramError(f"Telegram rejected the message{suffix}")
-            return
+            return payload
 
         raise TelegramError("Telegram retry loop ended unexpectedly")
+
+    @staticmethod
+    def _parse_update(payload: object) -> TelegramUpdate | None:
+        if not isinstance(payload, dict):
+            return None
+        update_id = payload.get("update_id")
+        if not isinstance(update_id, int):
+            return None
+        message = payload.get("message")
+        if not isinstance(message, dict):
+            return TelegramUpdate(update_id=update_id, chat_id=None, text=None)
+        chat = message.get("chat")
+        raw_chat_id = chat.get("id") if isinstance(chat, dict) else None
+        chat_id = str(raw_chat_id) if isinstance(raw_chat_id, (str, int)) else None
+        text = message.get("text")
+        return TelegramUpdate(
+            update_id=update_id,
+            chat_id=chat_id,
+            text=text if isinstance(text, str) else None,
+        )
 
     @staticmethod
     def _retry_delay(response: httpx.Response, payload: object, attempt: int) -> float:

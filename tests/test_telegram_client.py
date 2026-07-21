@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from task_digest.telegram import TelegramClient, TelegramError, split_telegram_html
+from task_digest.telegram import TelegramClient, TelegramError, TelegramUpdate, split_telegram_html
 
 
 def test_message_splitting_respects_limit_and_content() -> None:
@@ -84,3 +84,55 @@ async def test_telegram_retries_temporary_failure() -> None:
 
     assert attempts == 2
     assert delays == [0.0]
+
+
+@pytest.mark.asyncio
+async def test_telegram_registers_and_reads_digest_command() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("/setMyCommands"):
+            return httpx.Response(200, json={"ok": True, "result": True})
+        return httpx.Response(
+            200,
+            json={
+                "ok": True,
+                "result": [
+                    {
+                        "update_id": 42,
+                        "message": {"chat": {"id": -100123}, "text": "/digest"},
+                    }
+                ],
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://api.telegram.org/"
+    ) as http_client:
+        client = TelegramClient("token", "-100123", client=http_client)
+        await client.register_digest_command()
+        updates = await client.get_updates(offset=40, poll_timeout=0)
+
+    assert updates == [TelegramUpdate(update_id=42, chat_id="-100123", text="/digest")]
+    assert requests[0].url.path == "/bottoken/setMyCommands"
+    assert b'"command":"digest"' in requests[0].read()
+    assert b'"offset":40' in requests[1].read()
+
+
+@pytest.mark.parametrize(
+    ("text", "matches"),
+    [
+        ("/digest", True),
+        ("  /DIGEST  ", True),
+        ("/digest@task_digest_bot", True),
+        ("/digest now", True),
+        ("/digesting", False),
+        ("digest", False),
+        ("   ", False),
+    ],
+)
+def test_digest_command_recognition(text: str, matches: bool) -> None:
+    update = TelegramUpdate(update_id=1, chat_id="123", text=text)
+
+    assert update.is_command("digest") is matches
