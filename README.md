@@ -17,9 +17,9 @@ Anchor stores checklists inside the Quill document of a note. Task Digest:
 - excludes checked rows, ordinary note text, archived notes, and trashed notes;
 - includes both owned notes and notes shared with the API-token account;
 - groups rows under the Anchor note title;
+- links the note title to Anchor while leaving its checklist rows as plain text;
 - treats rows in pinned notes as high priority;
-- carries the account's Anchor tags into the digest; and
-- links each row back to its note in Anchor.
+- carries the account's Anchor tags into the digest.
 
 Anchor 0.14.0 has no task due-date or reminder field. Its checklist rows therefore appear in the
 `Unfinished checklist items` section. The generic digest model retains timezone-aware date support

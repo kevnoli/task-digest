@@ -145,6 +145,7 @@ def format_digest(
 
 def _render_project_heading(project: str, tasks: Sequence[DigestTask]) -> str:
     title = html.escape(_truncate(_clean_text(project), 100), quote=True)
+    url = html.escape(tasks[0].url, quote=True)
     seen: set[str] = set()
     labels: list[str] = []
     for task in tasks:
@@ -157,13 +158,12 @@ def _render_project_heading(project: str, tasks: Sequence[DigestTask]) -> str:
         for label in labels[:10]
     ]
     suffix = f" {' '.join(rendered_labels)}" if rendered_labels else ""
-    return f"<b>{title}</b>{suffix}"
+    return f'<a href="{url}"><b>{title}</b></a>{suffix}'
 
 
 def _render_task(task: DigestTask) -> list[str]:
     title = html.escape(_truncate(_clean_text(task.title), 240), quote=True)
-    url = html.escape(task.url, quote=True)
-    return [f'• <a href="{url}">{title}</a>']
+    return [f"• {title}"]
 
 
 def _clean_text(value: str) -> str:

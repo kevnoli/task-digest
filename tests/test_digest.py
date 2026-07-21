@@ -108,11 +108,12 @@ def test_formatting_escapes_html_and_puts_tags_on_note_heading(
     assert rendered is not None
     assert "Fix &lt;migration&gt; &amp; review" in rendered
     assert "&lt;script&gt;" not in rendered
-    assert "<b>Work</b> #needs_review" in rendered
     assert (
-        '• <a href="https://anchor.example.test/notes/note-1">'
-        "Fix &lt;migration&gt; &amp; review</a>" in rendered
+        '<a href="https://anchor.example.test/notes/note-1"><b>Work</b></a> #needs_review'
+        in rendered
     )
+    assert "• Fix &lt;migration&gt; &amp; review" in rendered
+    assert rendered.count('href="https://anchor.example.test/notes/note-1"') == 1
     assert "unchecked" not in rendered
 
 
@@ -127,6 +128,23 @@ def test_overdue_section_omits_empty_sections(make_task: Callable[..., SourceTas
 
 def test_empty_digest_returns_none() -> None:
     assert format_digest([], kind=DigestKind.MORNING, now=NOW, timezone=ZONE) is None
+
+
+def test_note_title_is_linked_once_and_tasks_are_plain_text(
+    make_task: Callable[..., SourceTask],
+) -> None:
+    rendered = format_digest(
+        classify([make_task(task_id="1", title="Milk"), make_task(task_id="2", title="Eggs")]),
+        kind=DigestKind.MORNING,
+        now=NOW,
+        timezone=ZONE,
+    )
+
+    assert rendered is not None
+    assert '<a href="https://anchor.example.test/notes/note-1"><b>Work</b></a>' in rendered
+    assert "• Eggs" in rendered
+    assert "• Milk" in rendered
+    assert rendered.count("<a href=") == 1
 
 
 def test_unchecked_section_is_grouped_and_priority_sorted(
